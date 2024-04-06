@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Processor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: space-around;
+            background-color: #f4f4f4;
+        }
+        .section {
+            width: 45%;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, textarea, button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            padding: 10px;
+            background-color: #e7e7e7;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="section">
+    <h2>Submit Documents</h2>
+    <form id="documentForm">
+        <div class="form-group">
+            <label for="questionInput">Question:</label>
+            <input type="text" id="questionInput" name="question" required>
+        </div>
+        <div class="form-group">
+            <label for="documentUrls">Document URLs (one per line):</label>
+            <textarea id="documentUrls" name="documents" required rows="4"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="autoApprove">Auto-approve suggestions:</label>
+            <input type="checkbox" id="autoApprove" name="autoApprove">
+        </div>
+        <button type="submit">Submit</button>
+    </form>
+</div>
+
+<div class="section">
+    <h2>Questions and Answers</h2>
+    <div id="qaSection">
+        <!-- The Q&A content will be loaded here -->
+    </div>
+</div>
+
+<script>
+    document.getElementById('documentForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(this);
+        fetch('/submit_documents', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data.message);
+            // Trigger the function to update the Q&A section
+            updateQASection();
+        })
+        .catch(error => console.error('Error:', error));
+    });
+
+    function updateQASection() {
+        fetch('/get_question_and_facts')
+            .then(response => response.json())
+            .then(data => {
+                const qaSection = document.getElementById('qaSection');
+                qaSection.innerHTML = `<h3>${data.question}</h3>`;
+                
+                const addedFactsUl = document.createElement('ul');
+                for (const [date, facts] of Object.entries(data.factsByDay)) {
+                    facts.forEach(entry => {
+                        const li = document.createElement('li');
+                        const timestamp = new Date(entry.timestamp);
+                        const now = new Date();
+                        const hoursDiff = (now - timestamp) / 36e5; // Convert milliseconds to hours
+
+                        li.textContent = `${date}: ${entry.fact}`;
+                        // Style new facts in green
+                        if (hoursDiff <= 24) {
+                            li.style.color = 'green';
+                        }
+
+                        addedFactsUl.appendChild(li);
+                    });
+                }
+                if (addedFactsUl.hasChildNodes()) {
+                    const addedFactsHeader = document.createElement('h4');
+                    addedFactsHeader.textContent = "Added Facts";
+                    qaSection.appendChild(addedFactsHeader);
+                    qaSection.appendChild(addedFactsUl);
+                }
+
+                // Handling removed facts
+                const removedFactsUl = document.createElement('ul');
+                for (const [date, facts] of Object.entries(data.removedFacts || {})) {
+                    facts.forEach(entry => {
+                        const li = document.createElement('li');
+                        li.textContent = `${date}: ${entry.fact}`;
+                        li.style.color = 'red'; // Style removed facts in red
+                        removedFactsUl.appendChild(li);
+                    });
+                }
+                if (removedFactsUl.hasChildNodes()) {
+                    const removedFactsHeader = document.createElement('h4');
+                    removedFactsHeader.textContent = "Removed Facts";
+                    qaSection.appendChild(removedFactsHeader);
+                    qaSection.appendChild(removedFactsUl);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+</script>
+
+</script>
+
+</body>
+</html>
